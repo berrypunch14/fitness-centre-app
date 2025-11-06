@@ -42,8 +42,8 @@ for t in ["MEMBER", "MEMBER_ASSESSMENT", "MEMBER_CONDITION"]:
 # APP LAYOUT
 # -----------------------------
 st.set_page_config(page_title="Fitness Centre Dashboard", layout="wide")
-st.title("🏋️ Fitness Centre — Database Dashboard")
-st.caption("Interactive CRUD app — Project by [Your Name], University of Sheffield")
+st.title("Fitness Centre — Database Dashboard")
+st.caption("Interactive database — Project by Muhammad Aiman, University of Sheffield")
 
 menu = ["Dashboard", "Manage Members", "Member Assessments", "Member Conditions", "About"]
 choice = st.sidebar.selectbox("Navigation", menu)
@@ -421,4 +421,5 @@ elif choice == "About":
 # -----------------------------
 st.markdown("---")
 st.caption("Project: Fitness Centre Database")
+
 
