@@ -1,76 +1,146 @@
 import streamlit as st
 import sqlite3
+import pandas as pd
 
-# --- DATABASE SETUP ---
-conn = sqlite3.connect('fitness_centre.db')
-c = conn.cursor()
+# -----------------------------
+# DATABASE CONNECTION
+# -----------------------------
+def get_connection():
+    conn = sqlite3.connect('fitness_centre.db', check_same_thread=False)
+    return conn
 
-# Create table if not exists
-c.execute('''
-    CREATE TABLE IF NOT EXISTS members (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        age INTEGER,
-        membership_type TEXT
-    )
-''')
-conn.commit()
+conn = get_connection()
+cursor = conn.cursor()
 
-# --- FUNCTIONS ---
-def add_member(name, age, membership_type):
-    c.execute('INSERT INTO members (name, age, membership_type) VALUES (?, ?, ?)', (name, age, membership_type))
+# -----------------------------
+# HELPER FUNCTIONS
+# -----------------------------
+def view_table(table_name):
+    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+    return df
+
+def execute_query(query, params=()):
+    cursor.execute(query, params)
     conn.commit()
 
-def view_members():
-    c.execute('SELECT * FROM members')
-    return c.fetchall()
+# -----------------------------
+# APP UI
+# -----------------------------
+st.set_page_config(page_title="Fitness Centre Database", layout="wide")
+st.title("🏋️‍♀️ Fitness Centre Database Management")
 
-def delete_member(member_id):
-    c.execute('DELETE FROM members WHERE id=?', (member_id,))
-    conn.commit()
+menu = ["Home", "Manage Members", "Member Assessments", "Member Conditions"]
+choice = st.sidebar.selectbox("Navigation", menu)
 
-def update_member(member_id, name, age, membership_type):
-    c.execute('UPDATE members SET name=?, age=?, membership_type=? WHERE id=?', (name, age, membership_type, member_id))
-    conn.commit()
+# -----------------------------
+# HOME
+# -----------------------------
+if choice == "Home":
+    st.write("""
+    ### Welcome to the Fitness Centre Database App
+    Use the sidebar to navigate between different sections:
+    - **Manage Members**: Add, update, or delete member profiles  
+    - **Member Assessments**: Record physical assessments  
+    - **Member Conditions**: Track health conditions
+    """)
 
-# --- STREAMLIT UI ---
-st.title("🏋️‍♂️ Fitness Centre Database App")
+# -----------------------------
+# MANAGE MEMBERS
+# -----------------------------
+elif choice == "Manage Members":
+    st.subheader("👥 Manage Members")
 
-menu = ["Add Member", "View Members", "Update Member", "Delete Member"]
-choice = st.sidebar.selectbox("Menu", menu)
+    tab1, tab2, tab3 = st.tabs(["Add Member", "View / Edit Members", "Delete Member"])
 
-if choice == "Add Member":
-    st.subheader("Add New Member")
-    name = st.text_input("Name")
-    age = st.number_input("Age", min_value=0)
-    membership_type = st.selectbox("Membership Type", ["Monthly", "Quarterly", "Yearly"])
-    if st.button("Add Member"):
-        add_member(name, age, membership_type)
-        st.success(f"Member '{name}' added successfully!")
+    with tab1:
+        st.write("### Add New Member")
+        email = st.text_input("Email")
+        first_name = st.text_input("First Name")
+        last_name = st.text_input("Last Name")
+        gender = st.selectbox("Gender", ["Male", "Female", "Other"])
 
-elif choice == "View Members":
-    st.subheader("View All Members")
-    members = view_members()
-    for m in members:
-        st.write(m)
+        if st.button("Add Member"):
+            try:
+                execute_query("INSERT INTO MEMBER (EMAIL, FIRST_NAME, LAST_NAME, GENDER) VALUES (?, ?, ?, ?)",
+                              (email, first_name, last_name, gender))
+                st.success(f"Member {first_name} {last_name} added successfully!")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-elif choice == "Update Member":
-    st.subheader("Update Member Details")
-    members = view_members()
-    member_ids = [m[0] for m in members]
-    selected_id = st.selectbox("Select Member ID", member_ids)
-    name = st.text_input("New Name")
-    age = st.number_input("New Age", min_value=0)
-    membership_type = st.selectbox("New Membership Type", ["Monthly", "Quarterly", "Yearly"])
-    if st.button("Update"):
-        update_member(selected_id, name, age, membership_type)
-        st.success("Member updated successfully!")
+    with tab2:
+        st.write("### View / Edit Members")
+        df = view_table("MEMBER")
+        st.dataframe(df)
 
-elif choice == "Delete Member":
-    st.subheader("Delete Member")
-    members = view_members()
-    member_ids = [m[0] for m in members]
-    selected_id = st.selectbox("Select Member ID", member_ids)
-    if st.button("Delete"):
-        delete_member(selected_id)
-        st.warning(f"Member with ID {selected_id} deleted.")
+    with tab3:
+        st.write("### Delete Member")
+        members = [row[0] for row in cursor.execute("SELECT EMAIL FROM MEMBER").fetchall()]
+        selected_email = st.selectbox("Select Member Email", members)
+        if st.button("Delete Member"):
+            execute_query("DELETE FROM MEMBER WHERE EMAIL = ?", (selected_email,))
+            st.success(f"Member with email {selected_email} deleted successfully!")
+
+# -----------------------------
+# MEMBER ASSESSMENTS
+# -----------------------------
+elif choice == "Member Assessments":
+    st.subheader("📊 Member Assessments")
+
+    tab1, tab2 = st.tabs(["Add Assessment", "View Assessments"])
+
+    with tab1:
+        st.write("### Add New Assessment")
+        members = [row[0] for row in cursor.execute("SELECT EMAIL FROM MEMBER").fetchall()]
+        email = st.selectbox("Select Member Email", members)
+        date = st.date_input("Assessment Date")
+        height = st.number_input("Height (cm)", min_value=0.0)
+        bmi = st.number_input("BMI", min_value=0.0)
+        bp = st.number_input("Blood Pressure", min_value=0.0)
+        hr = st.number_input("Heart Rate", min_value=0.0)
+        weight = st.number_input("Weight (kg)", min_value=0.0)
+
+        if st.button("Add Assessment"):
+            try:
+                execute_query("""
+                    INSERT INTO MEMBER_ASSESSMENT (EMAIL, ASSESSMENT_DATE, HEIGHT, BMI, BLOOD_PRESSURE, HEART_RATE, WEIGHT)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (email, date, height, bmi, bp, hr, weight))
+                st.success(f"Assessment added for {email} on {date}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab2:
+        st.write("### View Assessments")
+        df = view_table("MEMBER_ASSESSMENT")
+        st.dataframe(df)
+
+# -----------------------------
+# MEMBER CONDITIONS
+# -----------------------------
+elif choice == "Member Conditions":
+    st.subheader("⚕️ Member Conditions")
+
+    tab1, tab2 = st.tabs(["Add Condition", "View Conditions"])
+
+    with tab1:
+        st.write("### Add New Condition")
+        members = [row[0] for row in cursor.execute("SELECT EMAIL FROM MEMBER").fetchall()]
+        email = st.selectbox("Select Member Email", members)
+        condition = st.text_input("Condition Name")
+        severity = st.selectbox("Severity", ["Mild", "Moderate", "Severe"])
+        notes = st.text_area("Notes")
+
+        if st.button("Add Condition"):
+            try:
+                execute_query("""
+                    INSERT INTO MEMBER_CONDITION (EMAIL, CONDITION_NAME, SEVERITY, NOTES)
+                    VALUES (?, ?, ?, ?)
+                """, (email, condition, severity, notes))
+                st.success(f"Condition '{condition}' added for {email}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab2:
+        st.write("### View Member Conditions")
+        df = view_table("MEMBER_CONDITION")
+        st.dataframe(df)
