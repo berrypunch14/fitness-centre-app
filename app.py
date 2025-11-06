@@ -413,11 +413,12 @@ elif choice == "About":
     - Supports full CRUD for members, assessments, and health conditions.
     - Includes dashboard metrics and interactive charts for quick insights.
 
-    Project by **[Your Name]**, University of Sheffield.
+    Project by Muhammad Aiman, University of Sheffield.
     """)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("Project: Fitness Centre Database • Built with Python, Streamlit & SQLite3 • Demo for résumé / portfolio")
+st.caption("Project: Fitness Centre Database")
+
