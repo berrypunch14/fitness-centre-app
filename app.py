@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import altair as alt  # <-- Replaced matplotlib
+import altair as alt
 from datetime import datetime
 
 # -----------------------------
@@ -10,30 +10,28 @@ from datetime import datetime
 @st.cache_resource
 def get_connection():
     conn = sqlite3.connect("fitness_centre.db", check_same_thread=False)
-    conn.row_factory = sqlite3.Row  # Optional: Allows accessing columns by name
+    conn.row_factory = sqlite3.Row
     return conn
 
 conn = get_connection()
-# --- Global cursor removed ---
 
 # -----------------------------
 # UTILITIES
 # -----------------------------
 def run_query(query, params=()):
-    # FIX: Create a new cursor for each operation
-    with conn.cursor() as c:
-        c.execute(query, params)
-        conn.commit()
+    # FIX: Python 3.9 compatible cursor creation
+    c = conn.cursor()
+    c.execute(query, params)
+    conn.commit()
 
 def fetch_df(query, params=()):
-    # pd.read_sql_query handles its own connection management
     return pd.read_sql_query(query, conn, params=params)
 
 def table_exists(name: str) -> bool:
-    # FIX: Create a new cursor
-    with conn.cursor() as c:
-        q = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
-        return c.execute(q, (name,)).fetchone() is not None
+    # FIX: Python 3.9 compatible cursor creation
+    c = conn.cursor()
+    q = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
+    return c.execute(q, (name,)).fetchone() is not None
 
 # safe defaults if tables missing
 for t in ["MEMBER", "MEMBER_ASSESSMENT", "MEMBER_CONDITION"]:
@@ -56,7 +54,6 @@ choice = st.sidebar.selectbox("Navigation", menu)
 if choice == "Dashboard":
     st.header("Summary Dashboard")
 
-    # load dataframes (handle empty gracefully)
     members_df = fetch_df("SELECT * FROM MEMBER") if table_exists("MEMBER") else pd.DataFrame(columns=["EMAIL","FIRST_NAME","LAST_NAME","GENDER"])
     assess_df = fetch_df("SELECT * FROM MEMBER_ASSESSMENT") if table_exists("MEMBER_ASSESSMENT") else pd.DataFrame(columns=["EMAIL","ASSESSMENT_DATE","HEIGHT","BMI","BLOOD_PRESSURE","HEART_RATE","WEIGHT"])
     cond_df = fetch_df("SELECT * FROM MEMBER_CONDITION") if table_exists("MEMBER_CONDITION") else pd.DataFrame(columns=["EMAIL","CONDITION_NAME","SEVERITY","NOTES"])
@@ -76,7 +73,7 @@ if choice == "Dashboard":
     st.subheader("Charts & Distributions")
     chart_col1, chart_col2 = st.columns(2)
 
-    # FIX: Gender ratio pie (using Altair)
+    # Gender ratio pie (using Altair)
     with chart_col1:
         st.markdown("**Gender Ratio**")
         if not members_df.empty and "GENDER" in members_df.columns:
@@ -101,7 +98,7 @@ if choice == "Dashboard":
         else:
             st.info("No member gender data available.")
 
-    # FIX: BMI distribution histogram (using Altair)
+    # BMI distribution histogram (using Altair)
     with chart_col2:
         st.markdown("**BMI Distribution**")
         if not assess_df.empty and "BMI" in assess_df.columns:
@@ -119,7 +116,6 @@ if choice == "Dashboard":
     if not cond_df.empty:
         cond_counts = cond_df["CONDITION_NAME"].value_counts().reset_index()
         cond_counts.columns = ["condition", "count"]
-        # Use native st.bar_chart (which is also great!)
         st.bar_chart(data=cond_counts.set_index("condition"))
     else:
         st.info("No condition data available.")
@@ -146,14 +142,13 @@ elif choice == "Manage Members":
                     try:
                         run_query("INSERT INTO MEMBER (EMAIL, FIRST_NAME, LAST_NAME, GENDER) VALUES (?, ?, ?, ?)", (em, fn, ln, gender))
                         st.success(f"Member {fn} {ln} added.")
-                        st.rerun() # FIX: Refresh app state
+                        st.rerun() 
                     except Exception as e:
                         st.error(f"Error: {e}")
 
     with tab_view:
         st.subheader("All Members")
         
-        # FIX: Efficient SQL-based search
         st.markdown("**Search members**")
         q = st.text_input("Search by email / first name / last name")
         
@@ -194,7 +189,7 @@ elif choice == "Manage Members":
                             try:
                                 run_query("UPDATE MEMBER SET FIRST_NAME=?, LAST_NAME=?, GENDER=? WHERE EMAIL=?", (fn_new, ln_new, gender_new, sel))
                                 st.success("Member updated.")
-                                st.rerun() # FIX: Refresh app state
+                                st.rerun() 
                             except Exception as e:
                                 st.error(f"Error: {e}")
         else:
@@ -207,12 +202,11 @@ elif choice == "Manage Members":
             sel = st.selectbox("Select member to delete", members["EMAIL"])
             if st.button("Delete Member", type="primary"):
                 try:
-                    # FIX: App-level cascade delete
                     run_query("DELETE FROM MEMBER_ASSESSMENT WHERE EMAIL=?", (sel,))
                     run_query("DELETE FROM MEMBER_CONDITION WHERE EMAIL=?", (sel,))
                     run_query("DELETE FROM MEMBER WHERE EMAIL=?", (sel,))
                     st.success(f"Deleted {sel} and all associated data.")
-                    st.rerun() # FIX: Refresh app state
+                    st.rerun() 
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -245,7 +239,7 @@ elif choice == "Member Assessments":
                                     VALUES (?, ?, ?, ?, ?, ?, ?)""",
                                     (email, date.isoformat(), height or None, bmi or None, bp or None, hr or None, weight or None))
                         st.success("Assessment added.")
-                        st.rerun() # FIX: Refresh app state
+                        st.rerun() 
                     except Exception as e:
                         st.error(f"Error: {e}")
         else:
@@ -255,7 +249,6 @@ elif choice == "Member Assessments":
         st.subheader("View Assessments")
         df = fetch_df("SELECT * FROM MEMBER_ASSESSMENT ORDER BY ASSESSMENT_DATE DESC") if table_exists("MEMBER_ASSESSMENT") else pd.DataFrame()
         if not df.empty:
-            # date filter
             df["ASSESSMENT_DATE"] = pd.to_datetime(df["ASSESSMENT_DATE"])
             min_date = df["ASSESSMENT_DATE"].min().date()
             max_date = df["ASSESSMENT_DATE"].max().date()
@@ -295,7 +288,7 @@ elif choice == "Member Assessments":
                                             WHERE EMAIL=? AND ASSESSMENT_DATE=?""",
                                             (height, bmi, bp, hr, weight, email_sel, date_sel))
                                 st.success("Assessment updated.")
-                                st.rerun() # FIX: Refresh app state
+                                st.rerun() 
                             except Exception as e:
                                 st.error(f"Error: {e}")
         else:
@@ -312,7 +305,7 @@ elif choice == "Member Assessments":
                 try:
                     run_query("DELETE FROM MEMBER_ASSESSMENT WHERE EMAIL=? AND ASSESSMENT_DATE=?", (email_sel, date_sel))
                     st.success("Deleted assessment.")
-                    st.rerun() # FIX: Refresh app state
+                    st.rerun() 
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -341,7 +334,7 @@ elif choice == "Member Conditions":
                         try:
                             run_query("INSERT INTO MEMBER_CONDITION (EMAIL, CONDITION_NAME, SEVERITY, NOTES) VALUES (?, ?, ?, ?)", (email, cond, severity, notes))
                             st.success("Condition added.")
-                            st.rerun() # FIX: Refresh app state
+                            st.rerun() 
                         except Exception as e:
                             st.error(f"Error: {e}")
         else:
@@ -386,7 +379,7 @@ elif choice == "Member Conditions":
                             try:
                                 run_query("UPDATE MEMBER_CONDITION SET SEVERITY=?, NOTES=? WHERE EMAIL=? AND CONDITION_NAME=?", (severity, notes, email_sel, cond_sel))
                                 st.success("Condition updated.")
-                                st.rerun() # FIX: Refresh app state
+                                st.rerun() 
                             except Exception as e:
                                 st.error(f"Error: {e}")
         else:
@@ -403,7 +396,7 @@ elif choice == "Member Conditions":
                 try:
                     run_query("DELETE FROM MEMBER_CONDITION WHERE EMAIL=? AND CONDITION_NAME=?", (email_sel, cond_sel))
                     st.success("Condition deleted.")
-                    st.rerun() # FIX: Refresh app state
+                    st.rerun() 
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -420,11 +413,11 @@ elif choice == "About":
     - Supports full CRUD for members, assessments, and health conditions.
     - Includes dashboard metrics and interactive charts for quick insights.
 
-    Project by Muhammad Aiman, University of Sheffield.
+    Project by **[Your Name]**, University of Sheffield.
     """)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("Project: Fitness Centre Database")
+st.caption("Project: Fitness Centre Database • Built with Python, Streamlit & SQLite3 • Demo for résumé / portfolio")
