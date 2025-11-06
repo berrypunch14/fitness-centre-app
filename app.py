@@ -42,8 +42,8 @@ for t in ["MEMBER", "MEMBER_ASSESSMENT", "MEMBER_CONDITION"]:
 # APP LAYOUT
 # -----------------------------
 st.set_page_config(page_title="Fitness Centre Dashboard", layout="wide")
-st.title("Fitness Centre — Database Dashboard")
-st.caption("Interactive database — Project by Muhammad Aiman, University of Sheffield")
+st.title("Fitness Centre Database")
+st.caption("Muhammad Aiman, The University of Sheffield")
 
 menu = ["Dashboard", "Manage Members", "Member Assessments", "Member Conditions", "About"]
 choice = st.sidebar.selectbox("Navigation", menu)
@@ -408,18 +408,19 @@ elif choice == "Member Conditions":
 elif choice == "About":
     st.header("About this Project")
     st.markdown("""
-    **Fitness Centre Database App**
+    **Fitness Centre Database**
     - Built with **Streamlit**, **SQLite3**, **Pandas**, and **Altair**.
     - Supports full CRUD for members, assessments, and health conditions.
     - Includes dashboard metrics and interactive charts for quick insights.
 
-    Project by Muhammad Aiman, University of Sheffield.
+    Muhammad Aiman, The University of Sheffield.
     """)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("Project: Fitness Centre Database")
+st.caption("Fitness Centre Database")
+
 
 
